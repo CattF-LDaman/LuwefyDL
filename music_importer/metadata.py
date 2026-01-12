@@ -38,17 +38,22 @@ class MetadataManager:
             params = {
                 "term": query,
                 "media": "music",
+                "entity": "song",
                 "limit": limit
             }
             
             async with aiohttp.ClientSession() as session:
-                async with session.get(self.itunes_base_url, params=params) as response:
+                async with session.get(self.itunes_base_url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as response:
                     if response.status != 200:
                         raise Exception(f"iTunes API returned status {response.status}")
                     
                     data = await response.json()
                     return data.get("results", [])
                     
+        except asyncio.TimeoutError:
+            raise Exception("iTunes API request timed out")
+        except aiohttp.ClientError as e:
+            raise Exception(f"iTunes API connection error: {str(e)}")
         except Exception as e:
             raise Exception(f"iTunes search failed: {str(e)}")
     
@@ -168,7 +173,14 @@ class MetadataManager:
                     with open(cover_art_path, 'rb') as f:
                         cover_data = f.read()
                     
-                    audio_file['covr'] = [MP4Cover(cover_data)]
+                    # Determine format from file extension
+                    cover_format = MP4Cover.FORMAT_JPEG  # Default to JPEG
+                    if cover_art_path.lower().endswith('.png'):
+                        cover_format = MP4Cover.FORMAT_PNG
+                    elif cover_art_path.lower().endswith('.gif'):
+                        cover_format = MP4Cover.FORMAT_GIF
+                    
+                    audio_file['covr'] = [MP4Cover(cover_data, cover_format)]
                 
                 audio_file.save()
             
