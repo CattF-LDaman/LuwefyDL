@@ -5,6 +5,7 @@ Metadata management using iTunes API and mutagen for embedding
 import asyncio
 import aiohttp
 import aiofiles
+import json
 from pathlib import Path
 from typing import Dict, List, Optional
 import mutagen
@@ -42,18 +43,53 @@ class MetadataManager:
                 "limit": limit
             }
             
+            # Set headers to request JSON response
+            headers = {
+                "Accept": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+            
             async with aiohttp.ClientSession() as session:
-                async with session.get(self.itunes_base_url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                async with session.get(
+                    self.itunes_base_url, 
+                    params=params, 
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
                     if response.status != 200:
                         raise Exception(f"iTunes API returned status {response.status}")
                     
-                    data = await response.json()
+                    # Read response as text first to handle text/javascript mimetype
+                    text = await response.text()
+                    
+                    # Try to parse as JSON
+                    try:
+                        data = json.loads(text)
+                    except json.JSONDecodeError:
+                        # Sometimes iTunes API wraps JSON in a callback function
+                        # Try to extract JSON from callback wrapper
+                        if text.strip().startswith('(') and text.strip().endswith(')'):
+                            # Remove callback wrapper: callbackName({...}) -> {...}
+                            text = text.strip()
+                            # Find the first { and last }
+                            start = text.find('{')
+                            end = text.rfind('}')
+                            if start != -1 and end != -1 and end > start:
+                                text = text[start:end+1]
+                                data = json.loads(text)
+                            else:
+                                raise Exception("Could not parse iTunes API response")
+                        else:
+                            raise Exception(f"Invalid JSON response from iTunes API: {text[:200]}")
+                    
                     return data.get("results", [])
                     
         except asyncio.TimeoutError:
             raise Exception("iTunes API request timed out")
         except aiohttp.ClientError as e:
             raise Exception(f"iTunes API connection error: {str(e)}")
+        except json.JSONDecodeError as e:
+            raise Exception(f"iTunes API returned invalid JSON: {str(e)}")
         except Exception as e:
             raise Exception(f"iTunes search failed: {str(e)}")
     
