@@ -15,14 +15,34 @@ from mutagen.mp4 import MP4
 from mutagen.mp4 import MP4Cover
 import os
 
+from music_importer import __version__
+from music_importer.config import Config
+
+
+def _parse_itunes_response(text: str) -> list:
+    """Parse JSON from iTunes search API, including JSONP-style wrappers."""
+    try:
+        data = json.loads(text)
+        return data.get("results", [])
+    except json.JSONDecodeError:
+        stripped = text.strip()
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            data = json.loads(stripped[start : end + 1])
+            return data.get("results", [])
+        raise ValueError(f"Invalid JSON response from iTunes API: {text[:200]}")
+
 
 class MetadataManager:
     """Handle metadata fetching from iTunes and embedding into audio files"""
-    
-    def __init__(self):
+
+    def __init__(self, config: Optional[Config] = None):
         self.itunes_base_url = "https://itunes.apple.com/search"
-        self.temp_dir = Path(__file__).parent.parent / "temp"
-        self.temp_dir.mkdir(exist_ok=True)
+        cfg = config or Config()
+        self.temp_dir = Path(cfg.get_temp_dir())
+        self.temp_dir.mkdir(parents=True, exist_ok=True)
+        self.user_agent = f"LuwefyDL/{__version__}"
     
     async def search_itunes(self, query: str, limit: int = 20) -> List[Dict]:
         """
@@ -46,7 +66,7 @@ class MetadataManager:
             # Set headers to request JSON response
             headers = {
                 "Accept": "application/json",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                "User-Agent": self.user_agent,
             }
             
             async with aiohttp.ClientSession() as session:
@@ -59,30 +79,11 @@ class MetadataManager:
                     if response.status != 200:
                         raise Exception(f"iTunes API returned status {response.status}")
                     
-                    # Read response as text first to handle text/javascript mimetype
                     text = await response.text()
-                    
-                    # Try to parse as JSON
                     try:
-                        data = json.loads(text)
-                    except json.JSONDecodeError:
-                        # Sometimes iTunes API wraps JSON in a callback function
-                        # Try to extract JSON from callback wrapper
-                        if text.strip().startswith('(') and text.strip().endswith(')'):
-                            # Remove callback wrapper: callbackName({...}) -> {...}
-                            text = text.strip()
-                            # Find the first { and last }
-                            start = text.find('{')
-                            end = text.rfind('}')
-                            if start != -1 and end != -1 and end > start:
-                                text = text[start:end+1]
-                                data = json.loads(text)
-                            else:
-                                raise Exception("Could not parse iTunes API response")
-                        else:
-                            raise Exception(f"Invalid JSON response from iTunes API: {text[:200]}")
-                    
-                    return data.get("results", [])
+                        return _parse_itunes_response(text)
+                    except ValueError as e:
+                        raise Exception(str(e)) from e
                     
         except asyncio.TimeoutError:
             raise Exception("iTunes API request timed out")

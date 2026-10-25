@@ -9,13 +9,16 @@ import os
 from pathlib import Path
 from typing import List, Dict, Optional
 
+from music_importer.config import Config
+
 
 class YouTubeDownloader:
     """Handle YouTube video downloading and searching"""
-    
-    def __init__(self):
-        self.temp_dir = Path(__file__).parent.parent / "temp"
-        self.temp_dir.mkdir(exist_ok=True)
+
+    def __init__(self, config: Optional[Config] = None):
+        cfg = config or Config()
+        self.temp_dir = Path(cfg.get_temp_dir())
+        self.temp_dir.mkdir(parents=True, exist_ok=True)
     
     async def search_youtube(self, query: str, max_results: int = 10) -> List[Dict]:
         """

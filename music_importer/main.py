@@ -4,20 +4,21 @@ A NiceGUI web app for easily adding music from YouTube to Navidrome library
 """
 
 from nicegui import ui, app
-import os
-import sys
 import asyncio
+import logging
+import os
 from pathlib import Path
-
-# Add the project root to the path
-sys.path.insert(0, str(Path(__file__).parent))
 
 from music_importer.downloader import YouTubeDownloader
 from music_importer.metadata import MetadataManager
 from music_importer.config import Config
 
-# Initialize configuration
 config = Config()
+logging.basicConfig(
+    level=getattr(logging, config.log_level, logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 # Set up static files (create directory if it doesn't exist)
 static_dir = Path(__file__).parent / "static"
@@ -271,7 +272,6 @@ def main_page():
                         metadata_state['title'] = result.get('trackName', metadata_state['title'])
                         metadata_state['artist'] = result.get('artistName', '')
                         metadata_state['album'] = result.get('collectionName', '')
-                        # Handle year like tagger.py: str(best.get("releaseDate",""))[:4]
                         release_date = result.get('releaseDate', '')
                         if release_date:
                             metadata_state['year'] = str(release_date)[:4]
@@ -468,8 +468,7 @@ def main_page():
                             except Exception as e:
                                 progress_label.text = f"Error: {str(e)}"
                                 ui.notify(f"Failed to process: {str(e)}", type="negative")
-                                import traceback
-                                traceback.print_exc()
+                                logger.exception("Download and process failed")
                     
                     ui.button(
                         "Download & Add to Library",
@@ -477,12 +476,18 @@ def main_page():
                         on_click=download_and_process
                     ).classes("w-full mt-4").props("color=primary size=lg")
 
-if __name__ in {"__main__", "__mp_main__"}:
+def main():
     ui.run(
         title="LuwefyDL",
         favicon="🎵",
         dark=True,
-        port=8080,
-        reload=False
+        host=config.host,
+        port=config.port,
+        show=config.show_browser,
+        reload=False,
     )
+
+
+if __name__ in {"__main__", "__mp_main__"}:
+    main()
 

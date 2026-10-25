@@ -1,0 +1,21 @@
+[project]
+name = "luwefydl"
+version = "1.0.0"
+description = "Local web UI: YouTube search/link via yt-dlp, iTunes metadata, tags, and Artist/Album library layout"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["music_importer"]
+omit = ["music_importer/main.py"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+skip_empty = true

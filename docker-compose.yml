@@ -1,0 +1,13 @@
+services:
+  luwefydl:
+    build: .
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      DOCKER: "1"
+      MUSIC_LIBRARY_PATH: /data/music
+      PORT: "8080"
+      SHOW_BROWSER: "false"
+    volumes:
+      - ./data/music:/data/music
+      - ./temp:/app/temp
