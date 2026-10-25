@@ -282,6 +282,36 @@ async def test_search_itunes_timeout(isolated_env):
             await mgr.search_itunes("x")
 
 
+def test_target_path_for_metadata_respects_exclude(isolated_env):
+    mgr = MetadataManager(Config())
+    lib = isolated_env["music"]
+    existing = lib / "A" / "B" / "Song.mp3"
+    existing.parent.mkdir(parents=True)
+    existing.write_bytes(b"x")
+    meta = {"title": "Song", "artist": "A", "album": "B"}
+    path = mgr.target_path_for_metadata(lib, meta, ".mp3", exclude_path=existing)
+    assert path.resolve() == existing.resolve()
+
+
+@pytest.mark.asyncio
+async def test_read_metadata_embedded_mp3(isolated_env, sample_mp3_with_tags):
+    mgr = MetadataManager(Config())
+    await mgr.embed_metadata(
+        str(sample_mp3_with_tags),
+        {
+            "title": "Read Me",
+            "artist": "A",
+            "album": "B",
+            "year": "1999",
+            "genre": "Rock",
+        },
+    )
+    meta = mgr.read_metadata(str(sample_mp3_with_tags))
+    assert meta["title"] == "Read Me"
+    assert meta["artist"] == "A"
+    assert meta["year"] == "1999"
+
+
 @pytest.mark.asyncio
 async def test_save_to_library_missing_source(isolated_env):
     mgr = MetadataManager(Config())

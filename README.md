@@ -18,6 +18,7 @@
 - **YouTube thumbnail** as optional cover art
 - **ID3 / MP4** tag embedding (MP3, M4A)
 - **Artist/Album** folder layout on disk
+- **Library tab** — browse your on-disk library, edit tags (files move/rename to match), delete tracks with a confirmation dialog
 - Dark-themed [NiceGUI](https://nicegui.io/) interface
 
 The author does **not** operate YouTube, host downloads, or guarantee that your use is allowed by YouTube or copyright law — see **[DISCLAIMER.md](DISCLAIMER.md)**.
@@ -49,11 +50,14 @@ Requirements: Docker and Docker Compose. Use only with content you have the righ
 ```bash
 git clone https://github.com/CattF-LDaman/LuwefyDL.git
 cd LuwefyDL
+mkdir -p data/music temp
 cp .env.example .env   # optional overrides
 docker compose up --build
 ```
 
 Open [http://localhost:8080](http://localhost:8080). Files you choose to process are written under `./data/music` on the host.
+
+If saves fail with **Permission denied** on `/data/music`, set `PUID` and `PGID` in `.env` to your host user (`id -u` / `id -g`), then recreate the container. The entrypoint fixes ownership of bind-mounted `data/music` and `temp` on startup.
 
 ## Local development
 

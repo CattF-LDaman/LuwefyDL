@@ -240,6 +240,91 @@ class MetadataManager:
             
         except Exception as e:
             raise Exception(f"Failed to embed metadata: {str(e)}")
+
+    def read_metadata(self, audio_path: str) -> Dict[str, str]:
+        """Read embedded metadata from an audio file."""
+        path = Path(audio_path)
+        empty = {
+            "title": "",
+            "artist": "",
+            "album": "",
+            "year": "",
+            "genre": "",
+        }
+        if not path.is_file():
+            raise Exception(f"Audio file not found: {audio_path}")
+
+        audio_file = mutagen.File(audio_path)
+        if audio_file is None:
+            raise Exception(f"Could not load audio file: {audio_path}")
+
+        meta = dict(empty)
+        if isinstance(audio_file, MP3) and audio_file.tags:
+            tags = audio_file.tags
+            if "TIT2" in tags:
+                meta["title"] = str(tags["TIT2"])
+            if "TPE1" in tags:
+                meta["artist"] = str(tags["TPE1"])
+            if "TALB" in tags:
+                meta["album"] = str(tags["TALB"])
+            if "TDRC" in tags:
+                meta["year"] = str(tags["TDRC"])[:4]
+            if "TCON" in tags:
+                meta["genre"] = str(tags["TCON"])
+        elif isinstance(audio_file, MP4):
+            if "\xa9nam" in audio_file:
+                meta["title"] = audio_file["\xa9nam"][0]
+            if "\xa9ART" in audio_file:
+                meta["artist"] = audio_file["\xa9ART"][0]
+            if "\xa9alb" in audio_file:
+                meta["album"] = audio_file["\xa9alb"][0]
+            if "\xa9day" in audio_file:
+                meta["year"] = str(audio_file["\xa9day"][0])[:4]
+            if "\xa9gen" in audio_file:
+                meta["genre"] = audio_file["\xa9gen"][0]
+        else:
+            for key, tag_key in (
+                ("title", "title"),
+                ("artist", "artist"),
+                ("album", "album"),
+                ("year", "date"),
+                ("genre", "genre"),
+            ):
+                if tag_key in audio_file:
+                    val = audio_file[tag_key]
+                    meta[key] = val[0] if isinstance(val, list) else str(val)
+                    if key == "year" and meta[key]:
+                        meta[key] = meta[key][:4]
+
+        if not meta["title"]:
+            meta["title"] = path.stem
+        return meta
+
+    def target_path_for_metadata(
+        self,
+        library: Path,
+        metadata: Dict,
+        ext: str,
+        exclude_path: Optional[Path] = None,
+    ) -> Path:
+        """Compute library path for metadata (Artist/Album/Title.ext)."""
+        artist = self._clean_filename(metadata.get("artist") or "Unknown Artist")
+        album = self._clean_filename(metadata.get("album") or "Unknown Album")
+        title = self._clean_filename(metadata.get("title") or "Unknown Title")
+
+        target_dir = library / artist / album
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        if not ext.startswith("."):
+            ext = f".{ext}"
+
+        target_path = target_dir / f"{title}{ext}"
+        counter = 1
+        exclude_resolved = exclude_path.resolve() if exclude_path else None
+        while target_path.exists() and target_path.resolve() != exclude_resolved:
+            target_path = target_dir / f"{title} ({counter}){ext}"
+            counter += 1
+        return target_path
     
     async def save_to_library(
         self,
@@ -259,39 +344,12 @@ class MetadataManager:
             Final path where file was saved
         """
         try:
-            library = Path(library_path)
-            
-            # Organize by artist/album structure
-            artist = metadata.get('artist', 'Unknown Artist')
-            album = metadata.get('album', 'Unknown Album')
-            
-            # Clean names for filesystem
-            artist = self._clean_filename(artist)
-            album = self._clean_filename(album)
-            
-            # Create directory structure: library/Artist/Album/
-            target_dir = library / artist / album
-            target_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Determine filename
-            title = metadata.get('title', 'Unknown Title')
-            title = self._clean_filename(title)
-            
-            # Get file extension from source
-            source_ext = Path(audio_path).suffix
-            filename = f"{title}{source_ext}"
-            
-            # Handle duplicates
-            target_path = target_dir / filename
-            counter = 1
-            while target_path.exists():
-                target_path = target_dir / f"{title} ({counter}){source_ext}"
-                counter += 1
-            
-            # Copy file to library
             import shutil
+
+            library = Path(library_path)
+            source_ext = Path(audio_path).suffix
+            target_path = self.target_path_for_metadata(library, metadata, source_ext)
             shutil.copy2(audio_path, target_path)
-            
             return str(target_path)
             
         except Exception as e:

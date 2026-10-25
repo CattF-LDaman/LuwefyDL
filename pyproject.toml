@@ -13,7 +13,7 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["music_importer"]
-omit = ["music_importer/main.py"]
+omit = ["music_importer/main.py", "music_importer/ui_library.py"]
 
 [tool.coverage.report]
 fail_under = 85
