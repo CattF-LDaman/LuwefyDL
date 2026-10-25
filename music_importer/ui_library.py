@@ -37,7 +37,7 @@ def build_library_panel(config: Config) -> None:
                 {"name": "path", "label": "Path", "field": "path", "align": "left"},
             ],
             rows=[],
-            row_key="path",
+            row_key="full_path",
             pagination={"rowsPerPage": 15},
         ).classes("w-full").props("flat dense")
 
@@ -55,22 +55,20 @@ def build_library_panel(config: Config) -> None:
                 "full_path": track.path,
             }
 
-        def filtered_tracks() -> list:
+        def filtered_tracks() -> list[TrackRecord]:
             query = (filter_input.value or "").strip().lower()
             if not query:
                 return state["tracks"]
-            result = []
+            result: list[TrackRecord] = []
             for t in state["tracks"]:
-                haystack = " ".join(
-                    [t.artist, t.album, t.title, t.path]
-                ).lower()
+                haystack = " ".join([t.artist, t.album, t.title, t.path]).lower()
                 if query in haystack:
                     result.append(t)
             return result
 
-        def refresh_table() -> None:
+        def refresh_table(_=None) -> None:
             rows = [track_to_row(t) for t in filtered_tracks()]
-            table.rows = rows
+            table.rows[:] = rows
             table.update()
 
         def load_library() -> None:
@@ -192,10 +190,7 @@ def build_library_panel(config: Config) -> None:
 
         table.on("rowClick", on_row_click)
 
-        def on_filter(_=None) -> None:
-            refresh_table()
-
-        filter_input.on("input", on_filter)
+        filter_input.on_value_change(refresh_table)
 
         with ui.row().classes("w-full gap-2 mb-4"):
             ui.button("Refresh", icon="refresh", on_click=load_library).props(
