@@ -6,11 +6,12 @@ services:
       - "${PORT:-8080}:8080"
     environment:
       DOCKER: "1"
-      MUSIC_LIBRARY_PATH: /data/music
+      MUSIC_LIBRARY_PATH: ${MUSIC_LIBRARY_PATH:-/data/music}
+      TEMP_DIR: ${TEMP_DIR:-/app/temp}
       PORT: "8080"
       SHOW_BROWSER: "false"
       PUID: "${PUID:-1000}"
       PGID: "${PGID:-1000}"
     volumes:
-      - ./data/music:/data/music
-      - ./temp:/app/temp
+      - ${MUSIC_HOST_PATH:-./data/music}:${MUSIC_LIBRARY_PATH:-/data/music}
+      - ${TEMP_HOST_PATH:-./temp}:${TEMP_DIR:-/app/temp}

@@ -57,7 +57,14 @@ docker compose up --build
 
 Open [http://localhost:8080](http://localhost:8080). Files you choose to process are written under `./data/music` on the host.
 
-If saves fail with **Permission denied** on `/data/music`, set `PUID` and `PGID` in `.env` to your host user (`id -u` / `id -g`), then recreate the container. The entrypoint fixes ownership of bind-mounted `data/music` and `temp` on startup.
+To use a library folder anywhere on the host, set in `.env`:
+
+```bash
+MUSIC_HOST_PATH=/absolute/path/to/your/music
+MUSIC_LIBRARY_PATH=/data/music   # in-container path (default; keep unless you change both sides of the mount)
+```
+
+If saves fail with **Permission denied**, set `PUID` and `PGID` to your host user (`id -u` / `id -g`) and recreate the container. The entrypoint creates and `chown`s the bind-mounted library and temp paths from `MUSIC_LIBRARY_PATH` and `TEMP_DIR`.
 
 ## Local development
 
@@ -84,8 +91,10 @@ Coverage threshold (85%) applies to core modules; `main.py` is excluded from the
 
 | Variable | Default (local) | Default (Docker) | Description |
 |----------|-----------------|------------------|-------------|
-| `MUSIC_LIBRARY_PATH` | `./data/music` | `/data/music` | Root folder for saved tracks |
-| `TEMP_DIR` | `./temp` | `/app/temp` | Processing scratch space |
+| `MUSIC_LIBRARY_PATH` | `./data/music` | `/data/music` (override in `.env`) | Library root **inside** the container |
+| `MUSIC_HOST_PATH` | — | `./data/music` (Compose only) | Host path bind-mounted to `MUSIC_LIBRARY_PATH` |
+| `TEMP_DIR` | `./temp` | `/app/temp` | Processing scratch space **inside** the container |
+| `TEMP_HOST_PATH` | — | `./temp` (Compose only) | Host path bind-mounted to `TEMP_DIR` |
 | `HOST` | `127.0.0.1` | `0.0.0.0` | Web bind address |
 | `PORT` | `8080` | `8080` | Web port |
 | `SHOW_BROWSER` | `true` | `false` | Open browser on startup |
